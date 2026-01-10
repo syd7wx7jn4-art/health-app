@@ -207,19 +207,98 @@ body {
   width: 100%;
 }
 
-.calendar-placeholder {
+.calendar-container {
   background: var(--card-white);
   border-radius: 20px;
-  padding: 80px 20px;
-  text-align: center;
+  padding: 24px 20px;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04), 0 1px 3px rgba(0, 0, 0, 0.06);
   border: 1px solid var(--border-light);
 }
 
-.placeholder-text {
+.calendar-header {
+  margin-bottom: 20px;
+}
+
+.calendar-month {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-dark);
+  text-align: center;
+  letter-spacing: -0.3px;
+}
+
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.calendar-weekday {
+  text-align: center;
+  font-size: 12px;
+  font-weight: 600;
   color: var(--text-muted);
+  padding: 8px 4px;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+
+.calendar-day {
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   font-size: 15px;
-  font-weight: 400;
+  font-weight: 500;
+  color: var(--text-dark);
+  background: var(--bg-warm-white);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: 1.5px solid transparent;
+  user-select: none;
+}
+
+.calendar-day.empty {
+  background: transparent;
+  cursor: default;
+  border: none;
+}
+
+.calendar-day:not(.empty):active {
+  transform: scale(0.95);
+}
+
+.calendar-day.today {
+  background: var(--sage-green);
+  color: white;
+  font-weight: 700;
+  border-color: var(--sage-green);
+  box-shadow: 0 2px 8px rgba(135, 169, 107, 0.25);
+}
+
+.calendar-day.selected:not(.today) {
+  background: var(--dusty-blue);
+  color: white;
+  font-weight: 600;
+  border-color: var(--dusty-blue);
+  box-shadow: 0 2px 8px rgba(122, 157, 198, 0.25);
+}
+
+.calendar-day:not(.empty):not(.today):not(.selected):hover {
+  background: rgba(122, 157, 198, 0.1);
+  border-color: rgba(122, 157, 198, 0.3);
+}
+
+.calendar-selected-date {
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-muted);
+  font-weight: 500;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-light);
+  letter-spacing: 0.2px;
 }
 
 /* Diet Page */

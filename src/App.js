@@ -66,11 +66,142 @@ function App() {
 
   // Calendar Page Component
   const CalendarPage = () => {
+    const [selectedDate, setSelectedDate] = useState(null);
+
+    // Get date components in Hong Kong timezone
+    const getHKDateComponents = () => {
+      const now = new Date();
+      const formatter = new Intl.DateTimeFormat("en-US", {
+        timeZone: "Asia/Hong_Kong",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit"
+      });
+      const parts = formatter.formatToParts(now);
+      const year = parseInt(parts.find(p => p.type === 'year').value);
+      const month = parseInt(parts.find(p => p.type === 'month').value) - 1; // 0-indexed
+      const day = parseInt(parts.find(p => p.type === 'day').value);
+      return { year, month, day };
+    };
+
+    const hkToday = getHKDateComponents();
+    const [currentMonth, setCurrentMonth] = useState({
+      year: hkToday.year,
+      month: hkToday.month
+    });
+
+    const today = {
+      year: hkToday.year,
+      month: hkToday.month,
+      date: hkToday.day
+    };
+
+    // Get month name in Traditional Chinese
+    const getMonthName = (year, month) => {
+      const date = new Date(year, month, 1);
+      return date.toLocaleDateString("zh-HK", { 
+        year: "numeric", 
+        month: "long",
+        timeZone: "Asia/Hong_Kong"
+      });
+    };
+
+    // Get calendar days for the current month
+    const getCalendarDays = () => {
+      const { year, month } = currentMonth;
+      const firstDay = new Date(year, month, 1);
+      const lastDay = new Date(year, month + 1, 0);
+      const daysInMonth = lastDay.getDate();
+      const startingDayOfWeek = firstDay.getDay(); // 0 = Sunday, 6 = Saturday
+
+      const days = [];
+
+      // Add empty cells for days before the first day of the month
+      for (let i = 0; i < startingDayOfWeek; i++) {
+        days.push(null);
+      }
+
+      // Add all days of the month
+      for (let day = 1; day <= daysInMonth; day++) {
+        days.push(day);
+      }
+
+      return days;
+    };
+
+    const calendarDays = getCalendarDays();
+
+    // Handle date selection
+    const handleDateClick = (day) => {
+      if (day !== null) {
+        const monthStr = String(currentMonth.month + 1).padStart(2, '0');
+        const dayStr = String(day).padStart(2, '0');
+        const dateStr = `${currentMonth.year}-${monthStr}-${dayStr}`;
+        setSelectedDate(dateStr);
+      }
+    };
+
+    // Check if a day is today
+    const isToday = (day) => {
+      return day !== null &&
+        currentMonth.year === today.year &&
+        currentMonth.month === today.month &&
+        day === today.date;
+    };
+
+    // Check if a day is selected
+    const isSelected = (day) => {
+      if (!selectedDate || day === null) return false;
+      const [year, month, date] = selectedDate.split('-').map(Number);
+      return currentMonth.year === year &&
+        currentMonth.month === month - 1 &&
+        day === date;
+    };
+
+    // Week day labels (Sunday to Saturday)
+    const weekDays = ['日', '一', '二', '三', '四', '五', '六'];
+
     return (
       <div className="calendar-page">
         <div className="page-title">日誌</div>
-        <div className="calendar-placeholder">
-          <div className="placeholder-text">日曆功能開發中</div>
+        
+        <div className="calendar-container">
+          <div className="calendar-header">
+            <div className="calendar-month">
+              {getMonthName(currentMonth.year, currentMonth.month)}
+            </div>
+          </div>
+
+          <div className="calendar-grid">
+            {/* Week day headers */}
+            {weekDays.map((day, index) => (
+              <div key={index} className="calendar-weekday">
+                {day}
+              </div>
+            ))}
+
+            {/* Calendar days */}
+            {calendarDays.map((day, index) => {
+              const isTodayDay = isToday(day);
+              const isSelectedDay = isSelected(day);
+              
+              return (
+                <div
+                  key={index}
+                  className={`calendar-day ${day === null ? 'empty' : ''} ${isTodayDay ? 'today' : ''} ${isSelectedDay ? 'selected' : ''}`}
+                  onClick={() => handleDateClick(day)}
+                >
+                  {day !== null && day}
+                </div>
+              );
+            })}
+          </div>
+
+          {selectedDate && (
+            <div className="calendar-selected-date">
+              已選日期：{selectedDate}
+            </div>
+          )}
         </div>
       </div>
     );
