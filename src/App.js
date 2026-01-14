@@ -51,6 +51,28 @@ function App() {
     setActiveTab('home');
   };
 
+  /**
+   * Daily targets for Home rings. Kept in App state so other pages can read/write.
+   * Type (for future TS):
+   * type DailyTargets = {
+   *   proteinTarget: number;
+   *   carbsTarget: number;
+   *   fatTarget: number;
+   *   waterTargetMl: number;
+   * }
+   */
+  const [dailyTargets, setDailyTargets] = useState(() => {
+    try {
+      const raw = localStorage.getItem('dailyTargets_v1');
+      if (raw) return JSON.parse(raw);
+    } catch (e) {}
+    return { proteinTarget: 150, carbsTarget: 300, fatTarget: 70, waterTargetMl: 2000 };
+  });
+
+  useEffect(() => {
+    try { localStorage.setItem('dailyTargets_v1', JSON.stringify(dailyTargets)); } catch (e) {}
+  }, [dailyTargets]);
+
   useEffect(() => {
     try { localStorage.setItem('weeklyRoutine_v1', JSON.stringify(weeklyRoutine)); } catch (e) {}
   }, [weeklyRoutine]);
@@ -166,28 +188,94 @@ function App() {
     const fat = todayData.fat || 0;
     const water = todayData.water || 0;
     const displayDate = formatHKDateDisplay(new Date());
+    const [showTargetsModal, setShowTargetsModal] = useState(false);
+    const [tempTargets, setTempTargets] = useState(() => ({ ...dailyTargets }));
+
+    useEffect(() => {
+      setTempTargets({ ...dailyTargets });
+    }, [dailyTargets]);
+
+    const openTargets = () => setShowTargetsModal(true);
+    const closeTargets = () => {
+      setTempTargets({ ...dailyTargets });
+      setShowTargetsModal(false);
+    };
+
+    const saveTargets = () => {
+      const cleaned = {
+        proteinTarget: parseInt(tempTargets.proteinTarget || 0),
+        carbsTarget: parseInt(tempTargets.carbsTarget || 0),
+        fatTarget: parseInt(tempTargets.fatTarget || 0),
+        waterTargetMl: parseInt(tempTargets.waterTargetMl || 0)
+      };
+      setDailyTargets(cleaned);
+      setShowTargetsModal(false);
+    };
 
     return (
       <div className="home-page">
-        <div className="greeting">{displayDate}</div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div className="greeting">{displayDate}</div>
+          <button className="profile-edit-btn" onClick={openTargets} style={{ fontSize: 14, padding: 8 }}>編輯目標</button>
+        </div>
 
         <div className="top-cards rings-grid stacked">
           <div className="stat-card ring-wrapper">
-            <CircularRing value={protein} goal={150} label="蛋白質" unit="g" size={150} stroke={12} />
+            <CircularRing value={protein} goal={dailyTargets.proteinTarget} label="蛋白質" unit="g" size={150} stroke={12} />
           </div>
 
           <div className="stat-card ring-wrapper">
-            <CircularRing value={carbs} goal={300} label="碳水" unit="g" size={150} stroke={12} />
+            <CircularRing value={carbs} goal={dailyTargets.carbsTarget} label="碳水" unit="g" size={150} stroke={12} />
           </div>
 
           <div className="stat-card ring-wrapper">
-            <CircularRing value={fat} goal={70} label="脂肪" unit="g" size={150} stroke={12} />
+            <CircularRing value={fat} goal={dailyTargets.fatTarget} label="脂肪" unit="g" size={150} stroke={12} />
           </div>
 
           <div className="stat-card ring-wrapper">
-            <CircularRing value={water} goal={2000} label="飲水量" unit="mL" size={150} stroke={12} />
+            <CircularRing value={water} goal={dailyTargets.waterTargetMl} label="飲水量" unit="mL" size={150} stroke={12} />
           </div>
         </div>
+
+        {showTargetsModal && (
+          <div className="modal-overlay" onClick={closeTargets}>
+            <div className="modal-sheet" onClick={(e) => e.stopPropagation()}>
+              <div className="modal-header">
+                <h3 className="modal-title">編輯每日目標</h3>
+                <button className="modal-close-btn" onClick={closeTargets}>×</button>
+              </div>
+
+              <div className="modal-content">
+                <div className="modal-field">
+                  <label className="modal-label">蛋白質目標 (g)</label>
+                  <input type="number" className="modal-input" value={tempTargets.proteinTarget} onChange={(e)=>setTempTargets({...tempTargets, proteinTarget: e.target.value})} />
+                </div>
+
+                <div className="modal-field">
+                  <label className="modal-label">碳水目標 (g)</label>
+                  <input type="number" className="modal-input" value={tempTargets.carbsTarget} onChange={(e)=>setTempTargets({...tempTargets, carbsTarget: e.target.value})} />
+                </div>
+
+                <div className="modal-field">
+                  <label className="modal-label">脂肪目標 (g)</label>
+                  <input type="number" className="modal-input" value={tempTargets.fatTarget} onChange={(e)=>setTempTargets({...tempTargets, fatTarget: e.target.value})} />
+                </div>
+
+                <div className="modal-field">
+                  <label className="modal-label">飲水量目標 (mL)</label>
+                  <input type="number" className="modal-input" value={tempTargets.waterTargetMl} onChange={(e)=>setTempTargets({...tempTargets, waterTargetMl: e.target.value})} />
+                </div>
+              </div>
+
+              <div className="modal-footer">
+                <div style={{ display: 'flex', gap: 12 }}>
+                  <button className="modal-submit-btn" style={{ background: 'transparent', border: '1px solid var(--border-light)' }} onClick={closeTargets}>取消</button>
+                  <button className="modal-submit-btn" onClick={saveTargets}>儲存目標</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   };
@@ -306,23 +394,33 @@ function App() {
             ))}
 
             {cells.map((day, idx) => {
-              const isSelectedDay = (() => {
-                if (!day) return false;
-                const key = formatDateKey(currentMonth.year, currentMonth.month, day);
-                return key === selectedDate;
-              })();
+              if (!day) return (<div key={idx} className="calendar-day-wrapper"><div className="calendar-day empty" /></div>);
 
-              const letters = getLettersForDay(currentMonth.year, currentMonth.month, day);
+              const key = formatDateKey(currentMonth.year, currentMonth.month, day);
+              const isSelectedDay = key === selectedDate;
+              const d = diaryData[key] || {};
 
               return (
                 <div key={idx} className="calendar-day-wrapper">
-                  <div className={`calendar-day ${day ? '' : 'empty'} ${isSelectedDay ? 'selected' : ''}`} onClick={() => handleSelectDay(day)}>
-                    <div className="day-number">{day || ''}</div>
-                    <div className="day-labels">
-                      {['P','C','F','W'].map(l => (
-                        <span key={l} className={`day-tag ${letters.includes(l) ? 'active' : 'inactive'} ${l.toLowerCase()}`}>{l}</span>
-                      ))}
-                    </div>
+                  <div className="calendar-day" onClick={() => handleSelectDay(day)}>
+                    <div className={`day-number ${isSelectedDay ? 'selected' : ''}`}>{day}</div>
+
+                    {isSelectedDay && (
+                      <div className="day-metrics">
+                        <div className="dm-line">
+                          <span className="dm-p">P</span>
+                          <span className="dm-val">{d.protein || 0}</span>
+                          <span className="dm-c">C</span>
+                          <span className="dm-val">{d.carbs || 0}</span>
+                        </div>
+                        <div className="dm-line">
+                          <span className="dm-f">F</span>
+                          <span className="dm-val">{d.fat || 0}</span>
+                          <span className="dm-w">W</span>
+                          <span className="dm-val">{d.water || 0}</span>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               );
@@ -670,80 +768,7 @@ function App() {
     );
   };
 
-  // Metrics Page Component
-  const MetricsPage = () => {
-    const [metrics, setMetrics] = useState({
-      weight: '',
-      gripStrength: '',
-      sleep: '',
-      water: ''
-    });
-
-    const handleInputChange = (field, value) => {
-      setMetrics({ ...metrics, [field]: value });
-    };
-
-    const handleSaveData = () => {
-      if (metrics.weight) setWeight(parseFloat(metrics.weight));
-      alert(`Weight: ${metrics.weight || '未輸入'} kg\nGrip Strength: ${metrics.gripStrength || '未輸入'}\nSleep: ${metrics.sleep || '未輸入'} hours\nWater: ${metrics.water || '未輸入'} cc`);
-    };
-
-    return (
-      <div className="metrics-page">
-        <div className="page-title">數據記錄</div>
-        
-        <div className="metrics-form">
-          <div className="metric-input-row">
-            <label className="metric-label">Weight (kg)</label>
-            <input
-              type="number"
-              step="0.1"
-              placeholder="65.5"
-              value={metrics.weight}
-              onChange={(e) => handleInputChange('weight', e.target.value)}
-              className="metric-input"
-            />
-          </div>
-
-          <div className="metric-input-row">
-            <label className="metric-label">Grip Strength</label>
-            <input
-              type="number"
-              placeholder="50"
-              value={metrics.gripStrength}
-              onChange={(e) => handleInputChange('gripStrength', e.target.value)}
-              className="metric-input"
-            />
-          </div>
-
-          <div className="metric-input-row">
-            <label className="metric-label">Sleep (hours)</label>
-            <input
-              type="number"
-              step="0.1"
-              placeholder="8"
-              value={metrics.sleep}
-              onChange={(e) => handleInputChange('sleep', e.target.value)}
-              className="metric-input"
-            />
-          </div>
-
-          <div className="metric-input-row">
-            <label className="metric-label">Water (cc)</label>
-            <input
-              type="number"
-              placeholder="2000"
-              value={metrics.water}
-              onChange={(e) => handleInputChange('water', e.target.value)}
-              className="metric-input"
-            />
-          </div>
-
-          <button className="save-data-btn" onClick={handleSaveData}>Save Data</button>
-        </div>
-      </div>
-    );
-  };
+  // Metrics Page removed per request
 
   // Settings Page Component (Profile + Preferences)
   const SettingsPage = () => {
@@ -849,7 +874,7 @@ function App() {
       { id: 'calendar', label: '日誌', icon: '📅' },
       { id: 'workout', label: '健身', icon: '💪' },
       { id: 'diet', label: '飲食', icon: '🍽️' },
-      { id: 'metrics', label: '數據', icon: '📊' },
+      
       { id: 'settings', label: '設定', icon: '⚙️' }
     ];
 
@@ -882,8 +907,6 @@ function App() {
         return <WorkoutPage />;
       case 'settings':
         return <SettingsPage />;
-      case 'metrics':
-        return <MetricsPage />;
       default:
         return <HomePage />;
     }
