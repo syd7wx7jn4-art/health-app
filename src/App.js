@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import './App.css';
 
 function App() {
@@ -8,57 +8,133 @@ function App() {
   const [activities, setActivities] = useState(0);
   const [diaryData, setDiaryData] = useState({}); // 儲存每日日誌數據 { date: { calories, protein, carbs, fat, sleep, isGoalMet } }
 
+  // Helper: get today's date string in HK timezone (YYYY-MM-DD)
+  const getHKDateStr = (date = new Date()) => {
+    const formatter = new Intl.DateTimeFormat("en-US", {
+      timeZone: "Asia/Hong_Kong",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit"
+    });
+    const parts = formatter.formatToParts(date);
+    const year = parts.find(p => p.type === 'year').value;
+    const month = parts.find(p => p.type === 'month').value;
+    const day = parts.find(p => p.type === 'day').value;
+    return `${year}-${month}-${day}`;
+  };
+
+  // Helper: format HK display date like: 2026年1月15日（星期四）
+  const formatHKDateDisplay = (date = new Date()) => {
+    const formatter = new Intl.DateTimeFormat('zh-HK', {
+      timeZone: 'Asia/Hong_Kong',
+      year: 'numeric',
+      month: 'numeric',
+      day: 'numeric',
+      weekday: 'long'
+    });
+    const parts = formatter.formatToParts(date);
+    const year = parts.find(p => p.type === 'year')?.value || '';
+    const month = parts.find(p => p.type === 'month')?.value || '';
+    const day = parts.find(p => p.type === 'day')?.value || '';
+    const weekday = parts.find(p => p.type === 'weekday')?.value || '';
+    return `${year}年${month}月${day}日（${weekday}）`;
+  };
+
+  // Animated circular progress component
+  const CircularRing = ({ value = 0, goal = 100, size = 96, stroke = 8, label = '', unit = '' }) => {
+    const radius = (size - stroke) / 2;
+    const circumference = 2 * Math.PI * radius;
+    const prevRef = useRef(0);
+    const [animatedValue, setAnimatedValue] = useState(0);
+
+    useEffect(() => {
+      const from = prevRef.current || 0;
+      const to = Math.max(0, Math.min(value, goal));
+      const duration = 700; // ms
+      const start = performance.now();
+
+      const easeInOut = (t) => t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+
+      let raf = null;
+      const step = (now) => {
+        const t = Math.min(1, (now - start) / duration);
+        const eased = easeInOut(t);
+        const current = from + (to - from) * eased;
+        setAnimatedValue(current);
+        if (t < 1) raf = requestAnimationFrame(step);
+        else prevRef.current = to;
+      };
+
+      raf = requestAnimationFrame(step);
+      return () => raf && cancelAnimationFrame(raf);
+    }, [value, goal]);
+
+    const percent = goal > 0 ? Math.max(0, Math.min(1, animatedValue / goal)) : 0;
+    const dashOffset = circumference * (1 - percent);
+
+    return (
+      <div className="ring-card">
+        <svg className="circular-ring" width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+          <g transform={`translate(${size / 2}, ${size / 2})`}>
+            <circle
+              r={radius}
+              fill="transparent"
+              stroke="var(--border-light)"
+              strokeWidth={stroke}
+            />
+            <circle
+              r={radius}
+              fill="transparent"
+              stroke="var(--accent-neon)"
+              strokeWidth={stroke}
+              strokeLinecap="round"
+              strokeDasharray={circumference}
+              strokeDashoffset={dashOffset}
+              style={{ transition: 'stroke-dashoffset 0.1s linear' }}
+              transform={`rotate(-90)`}
+            />
+          </g>
+        </svg>
+
+        <div className="ring-text">
+          <div className="ring-value">{Math.round(animatedValue)}</div>
+          <div className="ring-unit">{unit}</div>
+        </div>
+
+        <div className="ring-label">{label} {Math.round(animatedValue)} / {goal} {unit}</div>
+      </div>
+    );
+  };
+
   // Home Page Component
   const HomePage = () => {
-    const handleQuickAction = (action) => {
-      if (action === 'diet') setActiveTab('diet');
-      else if (action === 'workout') setActiveTab('workout');
-      else alert('AI Coach - Coming Soon');
-    };
+    const todayStr = getHKDateStr();
+    const todayData = diaryData[todayStr] || {};
+    const protein = todayData.protein || 0;
+    const carbs = todayData.carbs || 0;
+    const fat = todayData.fat || 0;
+    const water = todayData.water || 0;
+    const displayDate = formatHKDateDisplay(new Date());
 
     return (
       <div className="home-page">
-        <div className="greeting">今天也要保持平衡</div>
-        
-        <div className="top-cards">
-          <div className="stat-card kcal-card">
-            <div className="card-icon">🔥</div>
-            <div className="card-content">
-              <div className="card-label">KCAL INTAKE</div>
-              <div className="card-value">{kcalIntake || 0}</div>
-            </div>
-          </div>
-          
-          <div className="stat-card activity-card">
-            <div className="card-icon">💪</div>
-            <div className="card-content">
-              <div className="card-label">ACTIVITIES</div>
-              <div className="card-value">{activities || 0}</div>
-            </div>
-          </div>
-        </div>
+        <div className="greeting">{displayDate}</div>
 
-        <div className="weight-card">
-          <div className="weight-label">WEIGHT</div>
-          <div className="weight-value">{weight} <span className="weight-unit">kg</span></div>
-        </div>
+        <div className="top-cards rings-grid stacked">
+          <div className="stat-card ring-wrapper">
+            <CircularRing value={protein} goal={150} label="蛋白質" unit="g" size={150} stroke={12} />
+          </div>
 
-        <div className="quick-actions">
-          <div className="section-title">QUICK ACTIONS</div>
-          <div className="action-item" onClick={() => handleQuickAction('diet')}>
-            <div className="action-icon">🍽️</div>
-            <div className="action-text">Diet Log</div>
-            <div className="action-arrow">›</div>
+          <div className="stat-card ring-wrapper">
+            <CircularRing value={carbs} goal={300} label="碳水" unit="g" size={150} stroke={12} />
           </div>
-          <div className="action-item" onClick={() => handleQuickAction('workout')}>
-            <div className="action-icon">🏋️</div>
-            <div className="action-text">Workout Log</div>
-            <div className="action-arrow">›</div>
+
+          <div className="stat-card ring-wrapper">
+            <CircularRing value={fat} goal={70} label="脂肪" unit="g" size={150} stroke={12} />
           </div>
-          <div className="action-item" onClick={() => handleQuickAction('ai')}>
-            <div className="action-icon">🤖</div>
-            <div className="action-text">AI Coach</div>
-            <div className="action-arrow">›</div>
+
+          <div className="stat-card ring-wrapper">
+            <CircularRing value={water} goal={2000} label="飲水量" unit="mL" size={150} stroke={12} />
           </div>
         </div>
       </div>
@@ -67,309 +143,218 @@ function App() {
 
   // Calendar Page Component
   const CalendarPage = () => {
-    const [selectedDate, setSelectedDate] = useState(null);
-    const [showModal, setShowModal] = useState(false);
-    const [modalData, setModalData] = useState({
-      calories: '',
-      protein: 50,
-      carbs: 50,
-      fat: 50,
-      sleep: 8
-    });
-
-    // Get date components in Hong Kong timezone
-    const getHKDateComponents = () => {
+    // month navigation
+    const getHKNow = () => {
       const now = new Date();
-      const formatter = new Intl.DateTimeFormat("en-US", {
-        timeZone: "Asia/Hong_Kong",
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit"
-      });
-      const parts = formatter.formatToParts(now);
+      const fmt = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Hong_Kong', year: 'numeric', month: '2-digit', day: '2-digit' });
+      const parts = fmt.formatToParts(now);
       const year = parseInt(parts.find(p => p.type === 'year').value);
-      const month = parseInt(parts.find(p => p.type === 'month').value) - 1; // 0-indexed
+      const month = parseInt(parts.find(p => p.type === 'month').value) - 1;
       const day = parseInt(parts.find(p => p.type === 'day').value);
       return { year, month, day };
     };
 
-    const hkToday = getHKDateComponents();
-    const [currentMonth, setCurrentMonth] = useState({
-      year: hkToday.year,
-      month: hkToday.month
-    });
+    const hkNow = getHKNow();
+    const [currentMonth, setCurrentMonth] = useState({ year: hkNow.year, month: hkNow.month });
+    const [selectedDate, setSelectedDate] = useState(() => getHKDateStr());
+    const [showModal, setShowModal] = useState(false);
+    const [modalData, setModalData] = useState({ protein: 0, carbs: 0, fat: 0, sleep: 0, water: 0 });
 
-    const today = {
-      year: hkToday.year,
-      month: hkToday.month,
-      date: hkToday.day
-    };
+    const startOfMonth = (y, m) => new Date(y, m, 1);
+    const monthLabel = (y, m) => `${y}年${m + 1}月`;
 
-    // Get month name in Traditional Chinese
-    const getMonthName = (year, month) => {
-      const date = new Date(year, month, 1);
-      return date.toLocaleDateString("zh-HK", { 
-        year: "numeric", 
-        month: "long",
-        timeZone: "Asia/Hong_Kong"
+    const prevMonth = () => {
+      setCurrentMonth(({ year, month }) => {
+        if (month === 0) return { year: year - 1, month: 11 };
+        return { year, month: month - 1 };
       });
     };
 
-    // Get calendar days for the current month
-    const getCalendarDays = () => {
-      const { year, month } = currentMonth;
+    const nextMonth = () => {
+      setCurrentMonth(({ year, month }) => {
+        if (month === 11) return { year: year + 1, month: 0 };
+        return { year, month: month + 1 };
+      });
+    };
+
+    const weekDays = ['日', '一', '二', '三', '四', '五', '六'];
+
+    const getCalendarMatrix = (year, month) => {
       const firstDay = new Date(year, month, 1);
       const lastDay = new Date(year, month + 1, 0);
       const daysInMonth = lastDay.getDate();
-      const startingDayOfWeek = firstDay.getDay(); // 0 = Sunday, 6 = Saturday
-
-      const days = [];
-
-      // Add empty cells for days before the first day of the month
-      for (let i = 0; i < startingDayOfWeek; i++) {
-        days.push(null);
-      }
-
-      // Add all days of the month
-      for (let day = 1; day <= daysInMonth; day++) {
-        days.push(day);
-      }
-
-      return days;
+      const startWeek = firstDay.getDay();
+      const cells = [];
+      // fill leading empty
+      for (let i = 0; i < startWeek; i++) cells.push(null);
+      for (let d = 1; d <= daysInMonth; d++) cells.push(d);
+      // fill trailing to complete last week
+      while (cells.length % 7 !== 0) cells.push(null);
+      return cells;
     };
 
-    const calendarDays = getCalendarDays();
+    const cells = getCalendarMatrix(currentMonth.year, currentMonth.month);
 
-    // Handle date selection
-    const handleDateClick = (day) => {
-      if (day !== null) {
-        const monthStr = String(currentMonth.month + 1).padStart(2, '0');
-        const dayStr = String(day).padStart(2, '0');
-        const dateStr = `${currentMonth.year}-${monthStr}-${dayStr}`;
-        setSelectedDate(dateStr);
-        
-        // 如果該日期已有數據，載入到 modal
-        const existingData = diaryData[dateStr];
-        if (existingData) {
-          setModalData({
-            calories: existingData.calories || '',
-            protein: existingData.protein || 50,
-            carbs: existingData.carbs || 50,
-            fat: existingData.fat || 50,
-            sleep: existingData.sleep || 8
-          });
-        } else {
-          setModalData({
-            calories: '',
-            protein: 50,
-            carbs: 50,
-            fat: 50,
-            sleep: 8
-          });
-        }
-      }
+    const formatDateKey = (year, month, day) => `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+
+    const handleSelectDay = (day) => {
+      if (!day) return;
+      const key = formatDateKey(currentMonth.year, currentMonth.month, day);
+      setSelectedDate(key);
+      // load modalData for preview/detail if exists
+      const d = diaryData[key] || {};
+      setModalData({ protein: d.protein || 0, carbs: d.carbs || 0, fat: d.fat || 0, sleep: d.sleep || 0, water: d.water || 0 });
     };
 
-    // Check if a day is today
-    const isToday = (day) => {
-      return day !== null &&
-        currentMonth.year === today.year &&
-        currentMonth.month === today.month &&
-        day === today.date;
+    // open add modal (for selected date)
+    const handleAdd = () => {
+      const key = selectedDate || formatDateKey(currentMonth.year, currentMonth.month, 1);
+      setSelectedDate(key);
+      const d = diaryData[key] || {};
+      setModalData({ protein: d.protein || 0, carbs: d.carbs || 0, fat: d.fat || 0, sleep: d.sleep || 0, water: d.water || 0 });
+      setShowModal(true);
     };
 
-    // Check if a day is selected
-    const isSelected = (day) => {
-      if (!selectedDate || day === null) return false;
-      const [year, month, date] = selectedDate.split('-').map(Number);
-      return currentMonth.year === year &&
-        currentMonth.month === month - 1 &&
-        day === date;
-    };
-
-    // Get date status (goal met or not)
-    const getDateStatus = (day) => {
-      if (day === null) return null;
-      const monthStr = String(currentMonth.month + 1).padStart(2, '0');
-      const dayStr = String(day).padStart(2, '0');
-      const dateStr = `${currentMonth.year}-${monthStr}-${dayStr}`;
-      const data = diaryData[dateStr];
-      return data ? data.isGoalMet : null;
-    };
-
-    // Handle modal submit
     const handleSubmit = () => {
       if (!selectedDate) return;
-      
-      // 簡單的達標判斷邏輯：卡路里 >= 1500 且睡眠 >= 7 小時
-      const calories = parseInt(modalData.calories) || 0;
-      const sleep = parseFloat(modalData.sleep) || 0;
-      const isGoalMet = calories >= 1500 && sleep >= 7;
-
-      const newData = {
-        ...diaryData,
-        [selectedDate]: {
-          calories: calories,
-          protein: modalData.protein,
-          carbs: modalData.carbs,
-          fat: modalData.fat,
-          sleep: sleep,
-          isGoalMet: isGoalMet
-        }
-      };
-      
+      const newData = { ...diaryData, [selectedDate]: { ...(diaryData[selectedDate] || {}), protein: modalData.protein || 0, carbs: modalData.carbs || 0, fat: modalData.fat || 0, sleep: modalData.sleep || 0, water: modalData.water || 0 } };
       setDiaryData(newData);
       setShowModal(false);
     };
 
-    // Open modal for adding new entry
-    const handleAddEntry = () => {
-      const todayStr = `${hkToday.year}-${String(hkToday.month + 1).padStart(2, '0')}-${String(hkToday.day).padStart(2, '0')}`;
-      setSelectedDate(todayStr);
-      setModalData({
-        calories: '',
-        protein: 50,
-        carbs: 50,
-        fat: 50,
-        sleep: 8
-      });
-      setShowModal(true);
+    // helper to get letters for a day
+    const getLettersForDay = (year, month, day) => {
+      if (!day) return [];
+      const key = formatDateKey(year, month, day);
+      const d = diaryData[key] || {};
+      const res = [];
+      if (d.protein) res.push('P');
+      if (d.carbs) res.push('C');
+      if (d.fat) res.push('F');
+      if (d.sleep) res.push('S');
+      return res;
     };
 
-    // Week day labels (Sunday to Saturday)
-    const weekDays = ['日', '一', '二', '三', '四', '五', '六'];
+    const selectedParts = selectedDate ? selectedDate.split('-').map(Number) : null;
+    const detailTitle = selectedParts ? `${String(selectedParts[1]).padStart(2, '0')}月${String(selectedParts[2]).padStart(2, '0')}日 詳細` : '詳細';
 
     return (
       <div className="calendar-page">
-        <div className="page-title">日誌</div>
-        
+        <div className="page-title" style={{ textAlign: 'center' }}>訓練日誌</div>
+
         <div className="calendar-container">
-          <div className="calendar-header">
-            <div className="calendar-month">
-              {getMonthName(currentMonth.year, currentMonth.month)}
-            </div>
+          <div className="calendar-topbar">
+            <button className="month-nav" onClick={prevMonth}>‹</button>
+            <div className="calendar-month-label">{monthLabel(currentMonth.year, currentMonth.month)}</div>
+            <button className="month-nav" onClick={nextMonth}>›</button>
           </div>
 
           <div className="calendar-grid">
-            {/* Week day headers */}
-            {weekDays.map((day, index) => (
-              <div key={index} className="calendar-weekday">
-                {day}
-              </div>
+            {weekDays.map((w, i) => (
+              <div key={i} className="calendar-weekday small">{w}</div>
             ))}
 
-            {/* Calendar days */}
-            {calendarDays.map((day, index) => {
-              const isTodayDay = isToday(day);
-              const isSelectedDay = isSelected(day);
-              const dateStatus = getDateStatus(day);
-              
+            {cells.map((day, idx) => {
+              const isSelectedDay = (() => {
+                if (!day) return false;
+                const key = formatDateKey(currentMonth.year, currentMonth.month, day);
+                return key === selectedDate;
+              })();
+
+              const letters = getLettersForDay(currentMonth.year, currentMonth.month, day);
+
               return (
-                <div key={index} className="calendar-day-wrapper">
-                  <div
-                    className={`calendar-day ${day === null ? 'empty' : ''} ${isTodayDay ? 'today' : ''} ${isSelectedDay ? 'selected' : ''}`}
-                    onClick={() => handleDateClick(day)}
-                  >
-                    {day !== null && day}
+                <div key={idx} className="calendar-day-wrapper">
+                  <div className={`calendar-day ${day ? '' : 'empty'} ${isSelectedDay ? 'selected' : ''}`} onClick={() => handleSelectDay(day)}>
+                    <div className="day-number">{day || ''}</div>
+                    <div className="day-labels">
+                      {['P','C','F','S'].map(l => (
+                        <span key={l} className={`day-tag ${letters.includes(l) ? 'active' : 'inactive'} ${l.toLowerCase()}`}>{l}</span>
+                      ))}
+                    </div>
                   </div>
-                  {day !== null && dateStatus !== null && (
-                    <div className={`calendar-day-status ${dateStatus ? 'goal-met' : 'goal-not-met'}`}></div>
-                  )}
                 </div>
               );
             })}
           </div>
 
-          {selectedDate && (
-            <div className="calendar-selected-date">
-              已選日期：{selectedDate}
+          <div className="calendar-legend">
+            <div><span className="legend-dot p"></span> P 蛋白質</div>
+            <div><span className="legend-dot c"></span> C 碳水</div>
+            <div><span className="legend-dot f"></span> F 脂肪</div>
+            <div><span className="legend-dot s"></span> S 睡眠</div>
+          </div>
+
+          <div className="detail-card">
+            <div className="detail-title">{detailTitle}</div>
+            <div className="detail-grid">
+              <div className="detail-col">
+                <div className="detail-item">
+                  <div className="detail-label">蛋白質</div>
+                  <div className="detail-value" style={{ color: 'var(--dusty-blue)' }}>{(diaryData[selectedDate] && diaryData[selectedDate].protein) || '-'}g</div>
+                </div>
+                <div className="detail-item">
+                  <div className="detail-label">脂肪</div>
+                  <div className="detail-value" style={{ color: 'var(--sage-green)' }}>{(diaryData[selectedDate] && diaryData[selectedDate].fat) || '-'}g</div>
+                </div>
+              </div>
+
+              <div className="detail-col">
+                <div className="detail-item">
+                  <div className="detail-label">碳水化合物</div>
+                  <div className="detail-value" style={{ color: '#2B8BE6' }}>{(diaryData[selectedDate] && diaryData[selectedDate].carbs) || '-'}g</div>
+                </div>
+                <div className="detail-item">
+                  <div className="detail-label">睡眠</div>
+                  <div className="detail-value" style={{ color: '#7A4BB0' }}>{(diaryData[selectedDate] && diaryData[selectedDate].sleep) || '-'} 小時</div>
+                </div>
+              </div>
             </div>
-          )}
+          </div>
+
         </div>
 
-        {/* Add Button */}
-        <button className="calendar-add-btn" onClick={handleAddEntry}>
+        <button className="calendar-add-btn" onClick={handleAdd}>
           <span className="add-btn-icon">+</span>
         </button>
 
-        {/* Modal/Sheet */}
         {showModal && (
           <div className="modal-overlay" onClick={() => setShowModal(false)}>
             <div className="modal-sheet" onClick={(e) => e.stopPropagation()}>
               <div className="modal-header">
-                <h3 className="modal-title">記錄日誌</h3>
+                <h3 className="modal-title">新增 / 編輯記錄</h3>
                 <button className="modal-close-btn" onClick={() => setShowModal(false)}>×</button>
               </div>
-              
+
               <div className="modal-content">
                 <div className="modal-field">
-                  <label className="modal-label">卡路里 (kcal)</label>
-                  <input
-                    type="number"
-                    className="modal-input"
-                    placeholder="輸入卡路里"
-                    value={modalData.calories}
-                    onChange={(e) => setModalData({ ...modalData, calories: e.target.value })}
-                  />
+                  <label className="modal-label">蛋白質 (g)</label>
+                  <input type="number" className="modal-input" value={modalData.protein} onChange={(e) => setModalData({ ...modalData, protein: parseInt(e.target.value || 0) })} />
                 </div>
 
                 <div className="modal-field">
-                  <label className="modal-label">蛋白質 (P): {modalData.protein}g</label>
-                  <input
-                    type="range"
-                    min="0"
-                    max="200"
-                    step="5"
-                    className="modal-slider"
-                    value={modalData.protein}
-                    onChange={(e) => setModalData({ ...modalData, protein: parseInt(e.target.value) })}
-                  />
+                  <label className="modal-label">碳水化合物 (g)</label>
+                  <input type="number" className="modal-input" value={modalData.carbs} onChange={(e) => setModalData({ ...modalData, carbs: parseInt(e.target.value || 0) })} />
                 </div>
 
                 <div className="modal-field">
-                  <label className="modal-label">碳水化合物 (C): {modalData.carbs}g</label>
-                  <input
-                    type="range"
-                    min="0"
-                    max="300"
-                    step="5"
-                    className="modal-slider"
-                    value={modalData.carbs}
-                    onChange={(e) => setModalData({ ...modalData, carbs: parseInt(e.target.value) })}
-                  />
+                  <label className="modal-label">脂肪 (g)</label>
+                  <input type="number" className="modal-input" value={modalData.fat} onChange={(e) => setModalData({ ...modalData, fat: parseInt(e.target.value || 0) })} />
                 </div>
 
                 <div className="modal-field">
-                  <label className="modal-label">脂肪 (F): {modalData.fat}g</label>
-                  <input
-                    type="range"
-                    min="0"
-                    max="150"
-                    step="5"
-                    className="modal-slider"
-                    value={modalData.fat}
-                    onChange={(e) => setModalData({ ...modalData, fat: parseInt(e.target.value) })}
-                  />
+                  <label className="modal-label">睡眠 (小時)</label>
+                  <input type="number" className="modal-input" value={modalData.sleep} onChange={(e) => setModalData({ ...modalData, sleep: parseFloat(e.target.value || 0) })} />
                 </div>
 
                 <div className="modal-field">
-                  <label className="modal-label">睡眠時數 (小時)</label>
-                  <select
-                    className="modal-select"
-                    value={modalData.sleep}
-                    onChange={(e) => setModalData({ ...modalData, sleep: parseFloat(e.target.value) })}
-                  >
-                    {Array.from({ length: 25 }, (_, i) => i / 2).map(hours => (
-                      <option key={hours} value={hours}>{hours} 小時</option>
-                    ))}
-                  </select>
+                  <label className="modal-label">飲水量 (mL)</label>
+                  <input type="number" className="modal-input" value={modalData.water} onChange={(e) => setModalData({ ...modalData, water: parseInt(e.target.value || 0) })} />
                 </div>
               </div>
 
               <div className="modal-footer">
-                <button className="modal-submit-btn" onClick={handleSubmit}>
-                  提交
-                </button>
+                <button className="modal-submit-btn" onClick={handleSubmit}>保存</button>
               </div>
             </div>
           </div>
@@ -441,10 +426,158 @@ function App() {
     const [exerciseName, setExerciseName] = useState('');
     const [kg, setKg] = useState('');
     const [reps, setReps] = useState('');
+    const [template, setTemplate] = useState('');
 
     const handleSave = () => {
       alert(`Exercise: ${exerciseName}\nType: ${workoutType}\nKg: ${kg}\nReps: ${reps}`);
       setActivities(prev => prev + 1);
+    };
+
+    // Dynamic Set Table component (inline)
+    const DynamicSetTable = ({ initialSets = 3 }) => {
+      const [sets, setSets] = useState(
+        Array.from({ length: initialSets }, () => ({ weight: '', reps: '', done: false }))
+      );
+
+      const updateSet = (index, field, value) => {
+        const next = sets.map((s, i) => (i === index ? { ...s, [field]: value } : s));
+        setSets(next);
+      };
+
+      const toggleDone = (index) => {
+        updateSet(index, 'done', !sets[index].done);
+      };
+
+      const addSet = () => setSets(prev => [...prev, { weight: '', reps: '', done: false }]);
+      const removeSet = (index) => setSets(prev => prev.filter((_, i) => i !== index));
+
+      return (
+        <div className="set-table">
+          {sets.map((s, idx) => (
+            <div key={idx} className={`set-row ${s.done ? 'set-done' : ''}`}>
+              <div className="set-cell set-index">{idx + 1}</div>
+
+              <div className="set-cell set-input">
+                <input
+                  type="number"
+                  step="0.5"
+                  placeholder="0"
+                  value={s.weight}
+                  onChange={(e) => updateSet(idx, 'weight', e.target.value)}
+                  className="workout-input"
+                />
+                <span className="unit-label">kg</span>
+              </div>
+
+              <div className="set-cell set-input">
+                <input
+                  type="number"
+                  placeholder="0"
+                  value={s.reps}
+                  onChange={(e) => updateSet(idx, 'reps', e.target.value)}
+                  className="workout-input"
+                />
+                <span className="unit-label">reps</span>
+              </div>
+
+              <div className="set-cell set-action">
+                <label className="set-checkbox-label">
+                  <input
+                    type="checkbox"
+                    checked={s.done}
+                    onChange={() => toggleDone(idx)}
+                    className="set-checkbox"
+                  />
+                </label>
+                <button className="remove-set-btn" onClick={() => removeSet(idx)} aria-label={`Remove set ${idx + 1}`}>✕</button>
+              </div>
+            </div>
+          ))}
+
+          <div style={{ display: 'flex', gap: 12, marginTop: 12 }}>
+            <button className="add-set-btn" onClick={addSet}>Add Set</button>
+          </div>
+        </div>
+      );
+    };
+
+    // Custom Plan input with localStorage-backed autocomplete
+    const CustomPlanInput = () => {
+      const STORAGE_KEY = 'exercise_names_v1';
+      const [exerciseNames, setExerciseNames] = useState(() => {
+        try {
+          const raw = localStorage.getItem(STORAGE_KEY);
+          return raw ? JSON.parse(raw) : [];
+        } catch (e) {
+          return [];
+        }
+      });
+
+      const [query, setQuery] = useState('');
+      const [showSuggestions, setShowSuggestions] = useState(false);
+      const inputRef = useRef(null);
+
+      useEffect(() => {
+        try { localStorage.setItem(STORAGE_KEY, JSON.stringify(exerciseNames)); } catch (e) {}
+      }, [exerciseNames]);
+
+      const addName = (name) => {
+        const trimmed = (name || '').trim();
+        if (!trimmed) return;
+        setExerciseNames(prev => {
+          if (prev.includes(trimmed)) return prev;
+          return [trimmed, ...prev].slice(0, 100);
+        });
+        setQuery('');
+        setShowSuggestions(false);
+      };
+
+      const removeName = (name) => setExerciseNames(prev => prev.filter(n => n !== name));
+
+      const suggestions = query
+        ? exerciseNames.filter(n => n.toLowerCase().includes(query.toLowerCase())).slice(0, 6)
+        : exerciseNames.slice(0, 6);
+
+      return (
+        <div className="custom-plan">
+          <div className="section-title">自定義計畫</div>
+
+          <div className="custom-input-row">
+            <input
+              ref={inputRef}
+              type="text"
+              placeholder="輸入運動名稱，按 Enter 新增"
+              value={query}
+              onChange={(e) => { setQuery(e.target.value); setShowSuggestions(true); }}
+              onFocus={() => setShowSuggestions(true)}
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addName(query); } }}
+              className="workout-input"
+            />
+            <button className="add-set-btn" onClick={() => addName(query)}>Add</button>
+          </div>
+
+          {showSuggestions && suggestions.length > 0 && (
+            <ul className="suggestions-list">
+              {suggestions.map((s, i) => (
+                <li key={i} className="suggestion-item" onMouseDown={(e) => { e.preventDefault(); addName(s); }}>
+                  {s}
+                </li>
+              ))}
+            </ul>
+          )}
+
+          {exerciseNames.length > 0 && (
+            <div className="saved-list">
+              {exerciseNames.map((n, i) => (
+                <div key={i} className="saved-item">
+                  <div className="saved-name" onClick={() => { setExerciseName(n); setActiveTab('workout'); }}>{n}</div>
+                  <button className="remove-btn" onClick={() => removeName(n)} aria-label={`Remove ${n}`}>✕</button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      );
     };
 
     return (
@@ -474,21 +607,46 @@ function App() {
             onChange={(e) => setExerciseName(e.target.value)}
             className="workout-input"
           />
-          <input
-            type="number"
-            placeholder="Kg"
-            value={kg}
-            onChange={(e) => setKg(e.target.value)}
-            className="workout-input"
-          />
-          <input
-            type="number"
-            placeholder="Reps"
-            value={reps}
-            onChange={(e) => setReps(e.target.value)}
-            className="workout-input"
-          />
-          <button className="save-workout-btn" onClick={handleSave}>Save Workout</button>
+
+          <div style={{ display: 'flex', gap: 12 }}>
+            <input
+              type="number"
+              placeholder="Kg"
+              value={kg}
+              onChange={(e) => setKg(e.target.value)}
+              className="workout-input"
+            />
+            <input
+              type="number"
+              placeholder="Reps"
+              value={reps}
+              onChange={(e) => setReps(e.target.value)}
+              className="workout-input"
+            />
+          </div>
+
+          <div style={{ display: 'flex', gap: 12, marginTop: 8 }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              Template:
+              <select value={template} onChange={(e) => setTemplate(e.target.value)} className="modal-select">
+                <option value="">-- Select --</option>
+                <option value="push_pull_leg">Push Pull Leg</option>
+              </select>
+            </label>
+
+            <button className="save-workout-btn" onClick={handleSave}>Save Workout</button>
+          </div>
+
+          {/* If a template that needs dynamic sets is selected, show the DynamicSetTable */}
+          {template === 'push_pull_leg' && (
+            <div style={{ marginTop: 18 }}>
+              <DynamicSetTable initialSets={4} />
+            </div>
+          )}
+
+          <div style={{ marginTop: 18 }}>
+            <CustomPlanInput />
+          </div>
         </div>
       </div>
     );
