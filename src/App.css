@@ -357,8 +357,8 @@ body {
 }
 
 .calendar-day.selected {
-  background: #111;
-  color: #fff;
+  background: transparent;
+  color: inherit;
   border-color: transparent;
   box-shadow: none;
 }
@@ -381,12 +381,8 @@ body {
   padding: 6px 10px;
   border-radius: 10px;
 }
-
-/* Selected box inside a date cell */
-.calendar-day.selected {
-  background: #111;
-  color: #fff;
-}
+.day-number.selected { background: #E24B4B; color: #fff; }
+.day-number.today { background: #DCEEFF; color: var(--text-dark); }
 .selected-box {
   display: flex;
   flex-direction: column;

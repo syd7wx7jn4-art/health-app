@@ -375,6 +375,7 @@ function App() {
     };
 
     const selectedParts = selectedDate ? selectedDate.split('-').map(Number) : null;
+    const todayKey = getHKDateStr();
     const detailTitle = selectedParts ? `${String(selectedParts[1]).padStart(2, '0')}月${String(selectedParts[2]).padStart(2, '0')}日 詳細` : '詳細';
 
     return (
@@ -398,12 +399,13 @@ function App() {
 
               const key = formatDateKey(currentMonth.year, currentMonth.month, day);
               const isSelectedDay = key === selectedDate;
+              const isToday = key === todayKey;
               const d = diaryData[key] || {};
 
               return (
                 <div key={idx} className="calendar-day-wrapper">
                   <div className="calendar-day" onClick={() => handleSelectDay(day)}>
-                    <div className={`day-number ${isSelectedDay ? 'selected' : ''}`}>{day}</div>
+                    <div className={`day-number ${isSelectedDay ? 'selected' : ''} ${isToday ? 'today' : ''}`}>{day}</div>
                   </div>
                 </div>
               );
