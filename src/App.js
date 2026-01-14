@@ -6,6 +6,7 @@ function App() {
   const [weight, setWeight] = useState(65.5);
   const [kcalIntake, setKcalIntake] = useState(0);
   const [activities, setActivities] = useState(0);
+  const [diaryData, setDiaryData] = useState({}); // 儲存每日日誌數據 { date: { calories, protein, carbs, fat, sleep, isGoalMet } }
 
   // Home Page Component
   const HomePage = () => {
@@ -67,6 +68,14 @@ function App() {
   // Calendar Page Component
   const CalendarPage = () => {
     const [selectedDate, setSelectedDate] = useState(null);
+    const [showModal, setShowModal] = useState(false);
+    const [modalData, setModalData] = useState({
+      calories: '',
+      protein: 50,
+      carbs: 50,
+      fat: 50,
+      sleep: 8
+    });
 
     // Get date components in Hong Kong timezone
     const getHKDateComponents = () => {
@@ -138,6 +147,26 @@ function App() {
         const dayStr = String(day).padStart(2, '0');
         const dateStr = `${currentMonth.year}-${monthStr}-${dayStr}`;
         setSelectedDate(dateStr);
+        
+        // 如果該日期已有數據，載入到 modal
+        const existingData = diaryData[dateStr];
+        if (existingData) {
+          setModalData({
+            calories: existingData.calories || '',
+            protein: existingData.protein || 50,
+            carbs: existingData.carbs || 50,
+            fat: existingData.fat || 50,
+            sleep: existingData.sleep || 8
+          });
+        } else {
+          setModalData({
+            calories: '',
+            protein: 50,
+            carbs: 50,
+            fat: 50,
+            sleep: 8
+          });
+        }
       }
     };
 
@@ -156,6 +185,55 @@ function App() {
       return currentMonth.year === year &&
         currentMonth.month === month - 1 &&
         day === date;
+    };
+
+    // Get date status (goal met or not)
+    const getDateStatus = (day) => {
+      if (day === null) return null;
+      const monthStr = String(currentMonth.month + 1).padStart(2, '0');
+      const dayStr = String(day).padStart(2, '0');
+      const dateStr = `${currentMonth.year}-${monthStr}-${dayStr}`;
+      const data = diaryData[dateStr];
+      return data ? data.isGoalMet : null;
+    };
+
+    // Handle modal submit
+    const handleSubmit = () => {
+      if (!selectedDate) return;
+      
+      // 簡單的達標判斷邏輯：卡路里 >= 1500 且睡眠 >= 7 小時
+      const calories = parseInt(modalData.calories) || 0;
+      const sleep = parseFloat(modalData.sleep) || 0;
+      const isGoalMet = calories >= 1500 && sleep >= 7;
+
+      const newData = {
+        ...diaryData,
+        [selectedDate]: {
+          calories: calories,
+          protein: modalData.protein,
+          carbs: modalData.carbs,
+          fat: modalData.fat,
+          sleep: sleep,
+          isGoalMet: isGoalMet
+        }
+      };
+      
+      setDiaryData(newData);
+      setShowModal(false);
+    };
+
+    // Open modal for adding new entry
+    const handleAddEntry = () => {
+      const todayStr = `${hkToday.year}-${String(hkToday.month + 1).padStart(2, '0')}-${String(hkToday.day).padStart(2, '0')}`;
+      setSelectedDate(todayStr);
+      setModalData({
+        calories: '',
+        protein: 50,
+        carbs: 50,
+        fat: 50,
+        sleep: 8
+      });
+      setShowModal(true);
     };
 
     // Week day labels (Sunday to Saturday)
@@ -184,14 +262,19 @@ function App() {
             {calendarDays.map((day, index) => {
               const isTodayDay = isToday(day);
               const isSelectedDay = isSelected(day);
+              const dateStatus = getDateStatus(day);
               
               return (
-                <div
-                  key={index}
-                  className={`calendar-day ${day === null ? 'empty' : ''} ${isTodayDay ? 'today' : ''} ${isSelectedDay ? 'selected' : ''}`}
-                  onClick={() => handleDateClick(day)}
-                >
-                  {day !== null && day}
+                <div key={index} className="calendar-day-wrapper">
+                  <div
+                    className={`calendar-day ${day === null ? 'empty' : ''} ${isTodayDay ? 'today' : ''} ${isSelectedDay ? 'selected' : ''}`}
+                    onClick={() => handleDateClick(day)}
+                  >
+                    {day !== null && day}
+                  </div>
+                  {day !== null && dateStatus !== null && (
+                    <div className={`calendar-day-status ${dateStatus ? 'goal-met' : 'goal-not-met'}`}></div>
+                  )}
                 </div>
               );
             })}
@@ -203,6 +286,94 @@ function App() {
             </div>
           )}
         </div>
+
+        {/* Add Button */}
+        <button className="calendar-add-btn" onClick={handleAddEntry}>
+          <span className="add-btn-icon">+</span>
+        </button>
+
+        {/* Modal/Sheet */}
+        {showModal && (
+          <div className="modal-overlay" onClick={() => setShowModal(false)}>
+            <div className="modal-sheet" onClick={(e) => e.stopPropagation()}>
+              <div className="modal-header">
+                <h3 className="modal-title">記錄日誌</h3>
+                <button className="modal-close-btn" onClick={() => setShowModal(false)}>×</button>
+              </div>
+              
+              <div className="modal-content">
+                <div className="modal-field">
+                  <label className="modal-label">卡路里 (kcal)</label>
+                  <input
+                    type="number"
+                    className="modal-input"
+                    placeholder="輸入卡路里"
+                    value={modalData.calories}
+                    onChange={(e) => setModalData({ ...modalData, calories: e.target.value })}
+                  />
+                </div>
+
+                <div className="modal-field">
+                  <label className="modal-label">蛋白質 (P): {modalData.protein}g</label>
+                  <input
+                    type="range"
+                    min="0"
+                    max="200"
+                    step="5"
+                    className="modal-slider"
+                    value={modalData.protein}
+                    onChange={(e) => setModalData({ ...modalData, protein: parseInt(e.target.value) })}
+                  />
+                </div>
+
+                <div className="modal-field">
+                  <label className="modal-label">碳水化合物 (C): {modalData.carbs}g</label>
+                  <input
+                    type="range"
+                    min="0"
+                    max="300"
+                    step="5"
+                    className="modal-slider"
+                    value={modalData.carbs}
+                    onChange={(e) => setModalData({ ...modalData, carbs: parseInt(e.target.value) })}
+                  />
+                </div>
+
+                <div className="modal-field">
+                  <label className="modal-label">脂肪 (F): {modalData.fat}g</label>
+                  <input
+                    type="range"
+                    min="0"
+                    max="150"
+                    step="5"
+                    className="modal-slider"
+                    value={modalData.fat}
+                    onChange={(e) => setModalData({ ...modalData, fat: parseInt(e.target.value) })}
+                  />
+                </div>
+
+                <div className="modal-field">
+                  <label className="modal-label">睡眠時數 (小時)</label>
+                  <select
+                    className="modal-select"
+                    value={modalData.sleep}
+                    onChange={(e) => setModalData({ ...modalData, sleep: parseFloat(e.target.value) })}
+                  >
+                    {Array.from({ length: 25 }, (_, i) => i / 2).map(hours => (
+                      <option key={hours} value={hours}>{hours} 小時</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="modal-footer">
+                <button className="modal-submit-btn" onClick={handleSubmit}>
+                  提交
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   };
