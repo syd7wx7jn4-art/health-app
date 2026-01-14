@@ -404,34 +404,10 @@ function App() {
                 <div key={idx} className="calendar-day-wrapper">
                   <div className="calendar-day" onClick={() => handleSelectDay(day)}>
                     <div className={`day-number ${isSelectedDay ? 'selected' : ''}`}>{day}</div>
-
-                    {isSelectedDay && (
-                      <div className="day-metrics">
-                        <div className="dm-line">
-                          <span className="dm-p">P</span>
-                          <span className="dm-val">{d.protein || 0}</span>
-                          <span className="dm-c">C</span>
-                          <span className="dm-val">{d.carbs || 0}</span>
-                        </div>
-                        <div className="dm-line">
-                          <span className="dm-f">F</span>
-                          <span className="dm-val">{d.fat || 0}</span>
-                          <span className="dm-w">W</span>
-                          <span className="dm-val">{d.water || 0}</span>
-                        </div>
-                      </div>
-                    )}
                   </div>
                 </div>
               );
             })}
-          </div>
-
-          <div className="calendar-legend">
-            <div><span className="legend-dot p"></span> P 蛋白質</div>
-            <div><span className="legend-dot c"></span> C 碳水</div>
-            <div><span className="legend-dot f"></span> F 脂肪</div>
-            <div><span className="legend-dot w"></span> W 飲水量</div>
           </div>
 
           <div className="detail-card">
