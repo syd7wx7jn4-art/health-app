@@ -245,9 +245,11 @@ function App() {
       ...dailyTargets
     }));
 
-    useEffect(() => {
-      setTempTargets({ ...dailyTargets });
-    }, [dailyTargets]);
+      useEffect(() => {
+    setTempTargets({ ...dailyTargets });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dailyTargets]);
+
 
     const openTargets = () => setShowTargetsModal(true);
     const closeTargets = () => {
