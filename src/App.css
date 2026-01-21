@@ -18,19 +18,6 @@
   --shadow-soft: 0 12px 32px rgba(0, 0, 0, 0.06);
 }
 
-:root {
-  --bg-warm-white: #FAF9F6;
-  --text-dark: #2C2C2C;
-  --text-muted: #6B6B6B;
-  --sage-green: #87A96B;
-  --dusty-blue: #7A9CC6;
-  --earthy-brown: #8B7355;
-  --card-white: #FFFFFF;
-  --border-light: #E8E8E8;
-  --accent-neon: #CCFF00;
-  --shadow-soft: 0 12px 32px rgba(0, 0, 0, 0.06);
-}
-
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
     'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
@@ -274,7 +261,7 @@ body {
   width: 100%;
 }
 
-.calendar-container {
+.calendar-container-compact {
   background: var(--card-white);
   border-radius: 20px;
   padding: 24px 20px;
@@ -318,6 +305,11 @@ body {
   margin-bottom: 12px;
   justify-items: center;
 }
+.calendar-grid-compact {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+}
 
 .calendar-weekday {
   text-align: center;
@@ -326,6 +318,13 @@ body {
   color: var(--text-muted);
   padding: 4px 2px;
 }
+.calendar-weekday-compact {
+  text-align: center;
+  font-size: 13px;
+  color: #999;
+  padding-bottom: 4px;
+}
+
 
 .calendar-day {
   width: 100%;
@@ -342,7 +341,7 @@ body {
   transition: all 0.15s ease;
   border: 1px solid transparent;
   user-select: none;
-  padding: 4px 0; /* reduce horizontal padding to avoid overflow */
+  padding: 4px 0;
   box-sizing: border-box;
 }
 
@@ -357,8 +356,8 @@ body {
 }
 
 .calendar-day.selected {
-  background: transparent;
-  color: inherit;
+  background: #111;
+  color: #fff;
   border-color: transparent;
   box-shadow: none;
 }
@@ -381,8 +380,19 @@ body {
   padding: 6px 10px;
   border-radius: 10px;
 }
-.day-number.selected { background: #E24B4B; color: #fff; }
-.day-number.today { background: #DCEEFF; color: var(--text-dark); }
+
+/* 今天：天藍色 */
+.calendar-day .day-number.calendar-day-today {
+  background-color: #87cefa;
+  color: #ffffff;
+}
+
+/* 選擇日期：粉紅色 */
+.calendar-day .day-number.calendar-day-selected {
+  background-color: #ff9bb5;
+  color: #ffffff;
+}
+
 .selected-box {
   display: flex;
   flex-direction: column;
@@ -414,9 +424,8 @@ body {
 .day-tag.f { background: rgba(135,169,107,0.12); }
 .day-tag.w { background: rgba(122,75,176,0.12); }
 
-/* legend removed per request */
-
 .calendar-add-btn {
+  /* Kept for compatibility */
   position: fixed;
   bottom: 100px;
   right: 50%;
@@ -436,7 +445,6 @@ body {
   z-index: 999;
   max-width: calc(430px - 40px);
 }
-
 .calendar-add-btn:active {
   transform: translateX(calc(50% - 195px)) scale(0.95);
   box-shadow: 0 2px 8px rgba(204, 255, 0, 0.4);
@@ -484,12 +492,8 @@ body {
 }
 
 @keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 .modal-sheet {
@@ -506,12 +510,8 @@ body {
 }
 
 @keyframes slideUp {
-  from {
-    transform: translateY(100%);
-  }
-  to {
-    transform: translateY(0);
-  }
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
 }
 
 .modal-header {
@@ -583,7 +583,6 @@ body {
   color: var(--text-dark);
   transition: all 0.2s ease;
   font-family: inherit;
-
 }
 
 .modal-input::placeholder {
@@ -1240,11 +1239,16 @@ body {
   -webkit-overflow-scrolling: touch;
 }
 
-/* Input number styling */
+/* Input number styling - HIDE SPINNERS */
 input[type="number"]::-webkit-inner-spin-button,
 input[type="number"]::-webkit-outer-spin-button {
-  opacity: 1;
-  height: auto;
+  -webkit-appearance: none;
+  margin: 0;
+  display: none; /* Safely hide */
+}
+
+input[type="number"] {
+  -moz-appearance: textfield; /* Firefox */
 }
 
 /* Focus visible for accessibility */
